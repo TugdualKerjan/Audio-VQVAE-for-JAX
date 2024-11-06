@@ -1,0 +1,8 @@
+jax
+numpy
+equinox
+librosa
+matplotlib
+tqdm
+torch
+torchaudio
