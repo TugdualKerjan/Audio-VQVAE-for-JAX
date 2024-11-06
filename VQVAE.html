@@ -128,7 +128,34 @@ window.Quarto = {
 <body>
 
 <div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
-<div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#context" id="toc-context" class="nav-link active" data-scroll-target="#context"><span class="header-section-number">1</span> Context 👀</a></li>
+  <li><a href="#goal" id="toc-goal" class="nav-link" data-scroll-target="#goal"><span class="header-section-number">2</span> Goal 🎯</a></li>
+  <li><a href="#model" id="toc-model" class="nav-link" data-scroll-target="#model"><span class="header-section-number">3</span> Model</a>
+  <ul class="collapse">
+  <li><a href="#resblocks" id="toc-resblocks" class="nav-link" data-scroll-target="#resblocks"><span class="header-section-number">3.1</span> ResBlocks</a></li>
+  <li><a href="#encoder" id="toc-encoder" class="nav-link" data-scroll-target="#encoder"><span class="header-section-number">3.2</span> Encoder</a></li>
+  <li><a href="#decoder" id="toc-decoder" class="nav-link" data-scroll-target="#decoder"><span class="header-section-number">3.3</span> Decoder</a>
+  <ul class="collapse">
+  <li><a href="#sec-plot" id="toc-sec-plot" class="nav-link" data-scroll-target="#sec-plot"><span class="header-section-number">3.3.1</span> UpsampledConv</a></li>
+  </ul></li>
+  <li><a href="#quantizer" id="toc-quantizer" class="nav-link" data-scroll-target="#quantizer"><span class="header-section-number">3.4</span> Quantizer</a></li>
+  <li><a href="#vqvae" id="toc-vqvae" class="nav-link" data-scroll-target="#vqvae"><span class="header-section-number">3.5</span> VQVAE</a></li>
+  </ul></li>
+  <li><a href="#training" id="toc-training" class="nav-link" data-scroll-target="#training"><span class="header-section-number">4</span> Training</a>
+  <ul class="collapse">
+  <li><a href="#codebook-special-thingies" id="toc-codebook-special-thingies" class="nav-link" data-scroll-target="#codebook-special-thingies"><span class="header-section-number">4.1</span> Codebook special thingies</a></li>
+  <li><a href="#losses-and-gradients" id="toc-losses-and-gradients" class="nav-link" data-scroll-target="#losses-and-gradients"><span class="header-section-number">4.2</span> Losses and gradients</a></li>
+  <li><a href="#preparing-the-data" id="toc-preparing-the-data" class="nav-link" data-scroll-target="#preparing-the-data"><span class="header-section-number">4.3</span> Preparing the data</a></li>
+  <li><a href="#actually-training" id="toc-actually-training" class="nav-link" data-scroll-target="#actually-training"><span class="header-section-number">4.4</span> Actually training</a></li>
+  </ul></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">5</span> References</a></li>
+  </ul>
+</nav>
 </div>
 <main class="content page-columns page-full" id="quarto-document-content">
 
@@ -163,6 +190,7 @@ window.Quarto = {
 </header>
 
 
+<p>For the full project, visit the <a href="https://github.com/TugdualKerjan/Audio-VQVAE-for-JAX">GitHub repository</a>.</p>
 <section id="context" class="level1" data-number="1">
 <h1 data-number="1"><span class="header-section-number">1</span> Context 👀</h1>
 <p>I’m trying to rewrite XTTS in JAX to understand how it works.</p>
@@ -414,7 +442,7 @@ Figure&nbsp;1
 </div>
 <section id="sec-plot" class="level3" data-number="3.3.1">
 <h3 data-number="3.3.1" class="anchored" data-anchor-id="sec-plot"><span class="header-section-number">3.3.1</span> UpsampledConv</h3>
-<p>Before we move onto the decoder we have to define a special layer that replaces the ConvTranspose that we would normally use. TODO understand I admit I still am still not sure why they use this instead.</p>
+<p>Before we move onto the decoder we have to define a special layer that replaces the ConvTranspose that we would normally use. I admit I still am not sure of the use of this.</p>
 <p>Their code for this function:</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> UpsampledConv(nn.Module):</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, conv, <span class="op">*</span>args, <span class="op">**</span>kwargs):</span>
