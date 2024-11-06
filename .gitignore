@@ -1,2 +1,7 @@
 LJSpeech-1.1.tar.bz2
 LJSpeech-1.1/**
+VQVAE_files/**
+dataset**
+.DS_Store
+runs/**
+checkpoints/**
