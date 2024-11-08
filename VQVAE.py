@@ -2,14 +2,11 @@
 # coding: utf-8
 
 
-
 import jax
 import jax.numpy as jnp
 import equinox as eqx
 import equinox.nn as nn
 import typing as tp
-
-
 
 
 class ResBlock(eqx.Module):
@@ -40,8 +37,6 @@ class ResBlock(eqx.Module):
         y = y + x
 
         return y
-
-
 
 
 class Encoder(eqx.Module):
@@ -97,6 +92,7 @@ class Encoder(eqx.Module):
         return y
 
 
+# | label: upsample
 
 
 class Decoder(eqx.Module):
@@ -162,6 +158,7 @@ class Decoder(eqx.Module):
         return y
 
 
+# | output: true
 
 
 # | label: upsample
@@ -195,8 +192,6 @@ class UpsampledConv(eqx.Module):
         upsampled_size = (x.shape[0], x.shape[1] * self.stride)
         upsampled = jax.image.resize(x, upsampled_size, method="nearest")
         return self.conv(upsampled)
-
-
 
 
 # | output: true
@@ -283,8 +278,6 @@ class Quantizer(eqx.Module):
         updates = (new_cluster_size, new_codebook_avg, new_codebook)
 
         return updates, codebook_indices
-
-
 
 
 class VQVAE(eqx.Module):

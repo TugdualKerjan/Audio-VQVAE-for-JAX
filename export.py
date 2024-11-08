@@ -19,6 +19,7 @@ for notebook_filename in os.listdir("."):
     if "ipynb" in notebook_filename:
 
         with open(notebook_filename, 'r', encoding='utf-8') as f:
+            print(notebook_filename)
             notebook = nbformat.read(f, as_version=4)
 
         # Filter cells by tags
