@@ -6,7 +6,7 @@ A JAX-based implementation of Vector-Quantized Variational Autoencoder (VQ-VAE) 
 
 ## Overview
 
-This project leverages **JAX** and **Equinox** for a VQ-VAE model focused on audio data, copying [XTTS](https://github.com/yourusername/XTTS)'s structure.
+This project leverages **JAX** and **Equinox** for a VQ-VAE model focused on audio data, copying [XTTS](https://github.com/coqui-ai/TTS)'s structure.
 
 ## Features
 
