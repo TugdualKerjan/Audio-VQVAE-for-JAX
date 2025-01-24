@@ -28,7 +28,7 @@ def update_codebook_ema(model, updates: tuple, codebook_indices, key=None):
     return model
 
 @eqx.filter_value_and_grad(has_aux=True)
-def calculate_losses(model, x):
+def calculate_losses_vqvae(model, x):
     z_e, z_q, codebook_updates, y = jax.vmap(model)(x)
 
     # Are the inputs and outputs close?
@@ -51,10 +51,27 @@ def calculate_losses(model, x):
     return total_loss, (reconstruct_loss, commit_loss, codebook_updates, y)
 
 
+@eqx.filter_value_and_grad(has_aux=True)
+def calculate_losses_vae(model, x):
+    z_e, y = jax.vmap(model)(x)
+
+    # Are the inputs and outputs close?
+    reconstruct_loss = jnp.mean(jnp.linalg.norm((x - y), ord=2, axis=(1, 2)))
+
+    # Are the output vectors z_e close to the codes z_q ?
+    # commit_loss = jnp.mean(
+    #     jnp.linalg.norm(z_e - jax.lax.stop_gradient(z_q), ord=2, axis=(1, 2))
+    # )
+    # KL_loss = 0.5 * jnp.sum(jnp.mean(codebook, axis=-1)**2 + jnp.var(codebook, axis=-1) - jnp.log(jnp.clip(jnp.std(codebook, axis=-1), min=1e-6)) - 1)
+
+    total_loss = reconstruct_loss 
+
+    return total_loss, (reconstruct_loss, y)
+
 @eqx.filter_jit
 def make_step(model, optimizer, opt_state, x, key):
     (total_loss, (reconstruct_loss, commit_loss, codebook_updates, y)), grads = (
-        calculate_losses(model, x)
+        calculate_losses_vqvae(model, x)
     )
     updates, opt_state = optimizer.update(grads, opt_state, model)
     model = eqx.apply_updates(model, updates)
@@ -67,5 +84,21 @@ def make_step(model, optimizer, opt_state, x, key):
         reconstruct_loss,
         commit_loss,
         codebook_updates,
+        y,
+    )
+
+@eqx.filter_jit
+def make_step_vae(model, optimizer, opt_state, x):
+    (total_loss, (reconstruct_loss, y)), grads = (
+        calculate_losses_vae(model, x)
+    )
+    updates, opt_state = optimizer.update(grads, opt_state, model)
+    model = eqx.apply_updates(model, updates)
+
+    return (
+        model,
+        opt_state,
+        total_loss,
+        reconstruct_loss,
         y,
     )

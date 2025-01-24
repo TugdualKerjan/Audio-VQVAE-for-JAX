@@ -3,7 +3,6 @@ import jax.numpy as jnp
 import equinox as eqx
 import equinox.nn as nn
 import typing as tp
-import torch
 
 class ResBlock(eqx.Module):
     conv1: nn.Conv1d
@@ -34,27 +33,34 @@ class ResBlock(eqx.Module):
 
         return y
 
+class UpsampledConv(eqx.Module):
+    conv: nn.Conv1d
+    stride: int = eqx.static_field()
 
-class UpsampledConv(torch.nn.Module):
-    def __init__(self, conv, *args, **kwargs):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: tp.Union[int, tp.Tuple[int]],
+        stride: int,
+        padding: tp.Union[int, str],
+        key=None,
+    ):
         super().__init__()
-        assert "stride" in kwargs.keys()
-        self.stride = kwargs["stride"]
-        del kwargs["stride"]
-        self.conv = conv(*args, **kwargs)
-
-    def forward(self, x):
-        up = torch.nn.functional.interpolate(
-            x, scale_factor=self.stride, mode="nearest"
+        self.stride = stride
+        self.conv = nn.Conv1d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=1,
+            padding=padding,
+            key=key,
         )
-        print(up.shape)
-        return self.conv(up)
 
-
-upsamp = UpsampledConv(torch.nn.Conv1d, 80, 512, 3, stride=2, padding=1)
-x = torch.ones((3, 80, 100))
-print(upsamp(x).shape)
-
+    def __call__(self, x):
+        upsampled_size = (x.shape[0], x.shape[1] * self.stride)
+        upsampled = jax.image.resize(x, upsampled_size, method="nearest")
+        return self.conv(upsampled)
 
 class Encoder(eqx.Module):
     conv1: nn.Conv1d
@@ -271,3 +277,19 @@ class VQVAE(eqx.Module):
         y = self.decoder(z_q)
 
         return z_e, z_q, codebook_indices, y
+
+class VAE(eqx.Module):
+    encoder: Encoder
+    decoder: Decoder
+
+    def __init__(self, key=None):
+        k1, k2 = jax.random.split(key)
+
+        self.encoder = Encoder(key=k1)
+        self.decoder = Decoder(key=k2)
+
+    def __call__(self, x):
+        z_e = self.encoder(x)
+        y = self.decoder(z_e)
+
+        return z_e, y

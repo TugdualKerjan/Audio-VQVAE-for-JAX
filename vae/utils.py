@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import librosa
 import numpy as np
 from jax import lax
-from jaxtyping import Array, Float, Int
+from jaxtyping import Array, Float
 
 # Pre-compute static values
 SAMPLE_RATE = 22050

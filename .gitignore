@@ -6,5 +6,6 @@ dataset**
 runs/**
 checkpoints/**
 __pycache__/**
-xttsvqvae.eqx
+generator.eqx
 dvae.pth
+transformed_lj_speech/
