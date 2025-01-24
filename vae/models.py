@@ -1,16 +1,9 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-
-
 import jax
 import jax.numpy as jnp
 import equinox as eqx
 import equinox.nn as nn
 import typing as tp
-
-
-
+import torch
 
 class ResBlock(eqx.Module):
     conv1: nn.Conv1d
@@ -42,6 +35,25 @@ class ResBlock(eqx.Module):
         return y
 
 
+class UpsampledConv(torch.nn.Module):
+    def __init__(self, conv, *args, **kwargs):
+        super().__init__()
+        assert "stride" in kwargs.keys()
+        self.stride = kwargs["stride"]
+        del kwargs["stride"]
+        self.conv = conv(*args, **kwargs)
+
+    def forward(self, x):
+        up = torch.nn.functional.interpolate(
+            x, scale_factor=self.stride, mode="nearest"
+        )
+        print(up.shape)
+        return self.conv(up)
+
+
+upsamp = UpsampledConv(torch.nn.Conv1d, 80, 512, 3, stride=2, padding=1)
+x = torch.ones((3, 80, 100))
+print(upsamp(x).shape)
 
 
 class Encoder(eqx.Module):
@@ -95,44 +107,6 @@ class Encoder(eqx.Module):
         y = self.conv3(y)
 
         return y
-
-
-
-
-# | label: upsample
-
-
-class UpsampledConv(eqx.Module):
-    conv: nn.Conv1d
-    stride: int = eqx.static_field()
-
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: tp.Union[int, tp.Tuple[int]],
-        stride: int,
-        padding: tp.Union[int, str],
-        key=None,
-    ):
-        super().__init__()
-        self.stride = stride
-        self.conv = nn.Conv1d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size,
-            stride=1,
-            padding=padding,
-            key=key,
-        )
-
-    def __call__(self, x):
-        upsampled_size = (x.shape[0], x.shape[1] * self.stride)
-        upsampled = jax.image.resize(x, upsampled_size, method="nearest")
-        return self.conv(upsampled)
-
-
-
 
 class Decoder(eqx.Module):
     conv1: nn.Conv1d
@@ -198,10 +172,6 @@ class Decoder(eqx.Module):
 
 
 
-
-# | output: true
-
-
 class Quantizer(eqx.Module):
     K: int = eqx.static_field()
     D: int = eqx.static_field()
@@ -230,33 +200,37 @@ class Quantizer(eqx.Module):
         # Init a matrix of vectors that will move with time
         self.codebook = jax.nn.initializers.variance_scaling(
             scale=1.0, mode="fan_in", distribution="uniform"
-        )(key, (num_dims, num_vecs))
+        )(key, (num_vecs, num_dims))
         self.codebook_avg = jnp.copy(self.codebook)
         self.cluster_size = jnp.zeros(num_vecs)
 
     def __call__(self, x):
         # x has N vectors of the codebook dimension. We calculate the nearest neighbors and output those instead
 
-        x = jnp.permute_dims(x, (1, 0))
         flatten = jax.numpy.reshape(x, (-1, self.D))
         a_squared = jnp.sum(flatten**2, axis=-1, keepdims=True)
-        b_squared = jnp.sum(self.codebook**2, axis=0, keepdims=True)
-        distance = a_squared + b_squared - 2 * jnp.matmul(flatten, self.codebook)
+        b_squared = jnp.transpose(jnp.sum(self.codebook**2, axis=-1, keepdims=True))
+        distance = (
+            a_squared
+            + b_squared
+            - 2 * jnp.matmul(flatten, jnp.transpose(self.codebook))
+        )
 
         codebook_indices = jnp.argmin(distance, axis=-1)
-        # codebook_onehot = jax.nn.one_hot(codebook_indices, self.K)
-        # codebook_indices = codebook_indices.reshape(*x.shape[:-1])
-        z_q = self.codebook.T[codebook_indices]
+
+        z_q = self.codebook[codebook_indices]
 
         # Straight-through estimator
         z_q = flatten + jax.lax.stop_gradient(z_q - flatten)
+        
+        z_q = jax.numpy.reshape(z_q, (-1, x.shape[-1]))
 
-        z_q = jnp.permute_dims(z_q, (1, 0))
         return z_q, self.codebook_updates(flatten, codebook_indices)
 
     def codebook_updates(self, flatten, codebook_indices):
+
         # Calculate the usage of various codes.
-        codebook_onehot = jax.nn.one_hot(codebook_indices.T, self.K)
+        codebook_onehot = jax.nn.one_hot(codebook_indices, self.K)
         codebook_onehot_sum = jnp.sum(codebook_onehot, axis=0)
         codebook_sum = jnp.dot(flatten.T, codebook_onehot)
         # We've just weighed the codebook vectors.
@@ -268,22 +242,16 @@ class Quantizer(eqx.Module):
 
         # Where is the average embedding at ?
         new_codebook_avg = (
-            self.decay * self.codebook_avg.T + (1 - self.decay) * codebook_sum.T
+            self.decay * self.codebook_avg + (1 - self.decay) * codebook_sum.T
         )
 
         n = jnp.sum(new_cluster_size)  # Over the total embeddings used
         new_cluster_size = (new_cluster_size + self.eps) / (n + self.K * self.eps) * n
-        new_codebook = self.codebook_avg.T / new_cluster_size[:, None]
+        new_codebook = self.codebook_avg / new_cluster_size[:, None]
 
-        updates = (new_cluster_size, new_codebook_avg.T, new_codebook.T)
+        updates = (new_cluster_size, new_codebook_avg, new_codebook)
 
         return updates, codebook_indices
-
-    def embed_code(self, embed_id):
-        return jax.nn.embedding(embed_id, self.codebook.T)
-
-
-
 
 class VQVAE(eqx.Module):
     encoder: Encoder
